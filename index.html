@@ -397,7 +397,7 @@ const S={
   jackDia:'',noLoadPressure:'',jackArea:'',carWeight:'',capacity:'',ratedWP:'',
   violations:[],
   customCode:'',customDesc:'',
-  sigData:null,
+  sigData:null, custSigData:null,
 };
 
 // ─── STEPS ────────────────────────────────────────────────────
@@ -434,7 +434,7 @@ function autoSave(id,val){
   const direct=['bldgName','address','location','city','state','zip','phone','ownerLessee','mailingAddress',
     'stateNum','bldgId','unitNum','yearInstalled','maintBy','expMo','expYear',
     'inspDate','inspSignature','arkLic','contacted','billingEmail','billingFax',
-    'testNotes','jackDia','noLoadPressure','jackArea','carWeight','capacity','ratedWP'];
+    'testNotes','jackDia','noLoadPressure','jackArea','carWeight','capacity','ratedWP','custSigName'];
   if(direct.includes(id)) S[id]=val;
 }
 function fld(lbl,id,val,ph,type='text',required=false,extraAttrs=''){
@@ -571,11 +571,17 @@ ${fld('Phone','phone',S.phone,'(501) 000-0000','tel')}
 ${fld('Mailing address (if different)','mailingAddress',S.mailingAddress,'Leave blank if same as above')}`;
 }
 function renderEquipmentDetails(){
-  const inspTypes=[
-    {v:'1',l:'Semi-Annual'},{v:'2',l:'Annual'},{v:'3',l:'Special Test/Insp.'},{v:'4',l:'Other'},
-  ];
   return`<div class="step-title">Equipment details</div>
 <div class="step-sub">Enter the state registration number, building ID, year installed, and maintenance contractor information.</div>
+<label>Permit / certificate posted?</label>
+<div class="toggle-row" style="margin-bottom:16px">
+  <button class="tb ${S.permitPosted==='yes'?'y':''}" onclick="pick('permitPosted','yes')">Yes</button>
+  <button class="tb ${S.permitPosted==='no'?'n':''}" onclick="pick('permitPosted','no')">No</button>
+</div>
+<div class="two-col">
+  ${fld('Permit expiration month','expMo',S.expMo,'Mo.','number')}
+  ${fld('Permit expiration year','expYear',S.expYear,'Year','number')}
+</div>
 <div class="two-col">
   ${fld('State number','stateNum',S.stateNum,'AR-00000')}
   ${fld('Building ID / name','bldgId',S.bldgId,'Building ID or name')}
@@ -584,16 +590,7 @@ function renderEquipmentDetails(){
   ${fld('Unit #','unitNum',S.unitNum,'Unit number (if applicable)')}
   ${fld('Year installed','yearInstalled',S.yearInstalled,'e.g. 2005','number')}
 </div>
-${fld('Maintenance company / contractor','maintBy',S.maintBy,'Company performing maintenance')}
-<label>Permit posted?</label>
-<div class="toggle-row" style="margin-bottom:16px">
-  <button class="tb ${S.permitPosted==='yes'?'y':''}" onclick="pick('permitPosted','yes')">Yes</button>
-  <button class="tb ${S.permitPosted==='no'?'n':''}" onclick="pick('permitPosted','no')">No</button>
-</div>
-<div class="two-col">
-  ${fld('Permit expiration month','expMo',S.expMo,'Mo.','number')}
-  ${fld('Permit expiration year','expYear',S.expYear,'Year','number')}
-</div>`;
+${fld('Maintenance company / contractor','maintBy',S.maintBy,'Company performing maintenance')}`;
 }
 function renderInspector(){
   return`<div class="step-title">Inspector information</div>
@@ -734,14 +731,34 @@ ${vRows||`<div style="text-align:center;padding:20px;color:#94a3b8;font-size:13p
 </div>`;
 }
 function renderSignature(){
-  return`<div class="step-title">Inspector signature</div>
-<div class="step-sub">Sign below using your finger or stylus. This signature will appear on the inspection report.</div>
-<div class="notice"><strong>I certify</strong> that the above tests were performed in my presence and in accordance with the requirements for ASME A17.1 and the State Elevator Safety Act.</div>
-<label>Sign below</label>
-<div class="sig-area"><canvas class="sig-canvas" id="sigCanvas" height="160"></canvas></div>
-<div class="sig-actions">
-  <button class="btn-outline" onclick="clearSig()">Clear signature</button>
-  ${S.sigData?'<span style="font-size:12px;color:#15803d;font-weight:600;padding:10px">✓ Signature captured</span>':''}
+  return`<div class="step-title">Signatures</div>
+<div class="step-sub">Both the customer representative and inspector must sign. Inspector: also confirm your printed name and license number below.</div>
+
+<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:18px;margin-bottom:20px">
+  <div style="font-size:14px;font-weight:700;color:#1e3a5f;margin-bottom:4px">Customer / Owner Representative</div>
+  <div style="font-size:12px;color:#64748b;margin-bottom:10px">Sign to acknowledge receipt of this inspection report.</div>
+  <label>Customer signature</label>
+  <div class="sig-area"><canvas class="sig-canvas" id="custSigCanvas" height="130"></canvas></div>
+  <div class="sig-actions">
+    <button class="btn-outline" onclick="clearCustSig()">Clear</button>
+    ${S.custSigData?'<span style="font-size:12px;color:#15803d;font-weight:600;padding:10px">✓ Captured</span>':''}
+  </div>
+  ${fld('Customer printed name','custSigName',S.custSigName||S.contacted,'Full name')}
+</div>
+
+<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:18px">
+  <div style="font-size:14px;font-weight:700;color:#1e3a5f;margin-bottom:4px">Inspector — ESIS</div>
+  <div class="notice" style="margin-bottom:12px"><strong>I certify</strong> that the above tests were performed in my presence and in accordance with ASME A17.1 / A17.3 and the Arkansas State Elevator Safety Act.</div>
+  <label>Inspector signature</label>
+  <div class="sig-area"><canvas class="sig-canvas" id="sigCanvas" height="130"></canvas></div>
+  <div class="sig-actions">
+    <button class="btn-outline" onclick="clearSig()">Clear</button>
+    ${S.sigData?'<span style="font-size:12px;color:#15803d;font-weight:600;padding:10px">✓ Captured</span>':''}
+  </div>
+  <div class="two-col" style="margin-top:10px">
+    ${fld('Inspector printed name','inspSignature',S.inspSignature,'Full name')}
+    ${fld('Arkansas license #','arkLic',S.arkLic,'Ark Lic. #')}
+  </div>
 </div>`;
 }
 function renderReview(){
@@ -823,6 +840,7 @@ ${S.sigData?`<div class="review-section">
 
 // ─── ACTIONS ──────────────────────────────────────────────────
 function pick(field,val){
+  saveCurrentStep(); // flush all current text inputs before re-rendering
   if(field.startsWith('areas.')){S.areas[field.slice(6)]=val;}
   else S[field]=val;
   render();
@@ -954,22 +972,40 @@ function addCustomVio(){
 
 // ─── SIGNATURE PAD ────────────────────────────────────────────
 let sigDrawing=false,sigLast=null,sigCtx=null;
-function initSig(){
-  const c=document.getElementById('sigCanvas');if(!c)return;
+let custSigDrawing=false,custSigLast=null,custSigCtx=null;
+
+function initSigCanvas(canvasId, isCustomer){
+  const c=document.getElementById(canvasId);if(!c)return null;
   c.width=c.parentElement.offsetWidth||600;
-  sigCtx=c.getContext('2d');sigCtx.strokeStyle='#1e293b';sigCtx.lineWidth=2;sigCtx.lineCap='round';sigCtx.lineJoin='round';
-  c.addEventListener('mousedown',e=>{sigDrawing=true;sigLast=pos(e,c)},false);
-  c.addEventListener('mousemove',e=>{if(!sigDrawing)return;const p=pos(e,c);draw(p);sigLast=p},false);
-  c.addEventListener('mouseup',e=>{sigDrawing=false;saveS()},false);
-  c.addEventListener('mouseleave',e=>{sigDrawing=false;saveS()},false);
-  c.addEventListener('touchstart',e=>{e.preventDefault();sigDrawing=true;sigLast=pos(e.touches[0],c)},{passive:false});
-  c.addEventListener('touchmove',e=>{e.preventDefault();if(!sigDrawing)return;const p=pos(e.touches[0],c);draw(p);sigLast=p},{passive:false});
-  c.addEventListener('touchend',e=>{sigDrawing=false;saveS()},false);
+  const ctx=c.getContext('2d');
+  ctx.strokeStyle='#1e293b';ctx.lineWidth=2;ctx.lineCap='round';ctx.lineJoin='round';
+  let drawing=false,last=null;
+  const drawLine=(p)=>{if(!last)return;ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();};
+  const save=()=>{if(isCustomer)S.custSigData=c.toDataURL();else S.sigData=c.toDataURL();};
+  c.addEventListener('mousedown',e=>{drawing=true;last=pos(e,c)},false);
+  c.addEventListener('mousemove',e=>{if(!drawing)return;const p=pos(e,c);drawLine(p);last=p;},false);
+  c.addEventListener('mouseup',e=>{drawing=false;save();},false);
+  c.addEventListener('mouseleave',e=>{drawing=false;save();},false);
+  c.addEventListener('touchstart',e=>{e.preventDefault();drawing=true;last=pos(e.touches[0],c);},{passive:false});
+  c.addEventListener('touchmove',e=>{e.preventDefault();if(!drawing)return;const p=pos(e.touches[0],c);drawLine(p);last=p;},{passive:false});
+  c.addEventListener('touchend',e=>{drawing=false;save();},false);
+  return ctx;
+}
+function initSig(){
+  sigCtx=initSigCanvas('sigCanvas',false);
+  custSigCtx=initSigCanvas('custSigCanvas',true);
 }
 function pos(e,c){const r=c.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
-function draw(p){if(!sigCtx||!sigLast)return;sigCtx.beginPath();sigCtx.moveTo(sigLast.x,sigLast.y);sigCtx.lineTo(p.x,p.y);sigCtx.stroke();}
-function saveS(){const c=document.getElementById('sigCanvas');if(c)S.sigData=c.toDataURL();}
-function clearSig(){const c=document.getElementById('sigCanvas');if(c&&sigCtx){sigCtx.clearRect(0,0,c.width,c.height);S.sigData=null;render();}}
+function clearSig(){
+  const c=document.getElementById('sigCanvas');
+  if(c){const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);}
+  S.sigData=null;render();
+}
+function clearCustSig(){
+  const c=document.getElementById('custSigCanvas');
+  if(c){const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);}
+  S.custSigData=null;render();
+}
 
 // ─── REPORT HTML BUILDER ─────────────────────────────────────
 function buildReportHTML(){
@@ -1046,10 +1082,10 @@ ${rows}</table>`;
   @media print{body{margin:8px 12px}@page{margin:0.5in}}
 </style></head><body>
 <div class="hdr">
-  <h1>ELEVATOR SAFETY INSPECTION SERVICES, INC.</h1>
-  <div style="font-size:10px">835 Central Ave., Suite 327 • Hot Springs, AR 71901 • Phone: 501-833-2133</div>
-  <div style="font-size:10px">esis@elevatorsafetyinspection.net • www.elevatorsafetyinspection.net</div>
-  <h2 style="margin-top:6px;font-size:12px">INSPECTION REPORT — FORM ARINSP</h2>
+  <h1 style="font-size:16px;font-weight:900;letter-spacing:.02em">ELEVATOR SAFETY INSPECTION SERVICES, INC.</h1>
+  <div style="font-size:12px;font-weight:700;margin-top:3px">835 Central Ave., Suite 327 &bull; Hot Springs, AR 71901</div>
+  <div style="font-size:12px;font-weight:700">(501) 833-2133 &bull; esis@elevatorsafetyinspection.net</div>
+  <h2 style="margin-top:8px;font-size:13px">INSPECTION REPORT — FORM ARINSP</h2>
 </div>
 
 <table><tr>
@@ -1103,16 +1139,34 @@ ${testLogHTML}
 ${vioRows}
 </table>
 
-<table style="margin-top:14px"><tr>
-  <td style="width:55%;border:1px solid #999;padding:6px 8px">
-    <span class="lbl">Inspector signature:</span><br><br>${sigBlock}
-    <div>${S.inspSignature||' '}</div>
+<table style="margin-top:14px;width:100%;border-collapse:collapse">
+<tr>
+  <td style="width:50%;border:1px solid #999;padding:8px 10px;vertical-align:top">
+    <div style="font-size:10px;font-weight:700;margin-bottom:4px">CUSTOMER / OWNER REPRESENTATIVE</div>
+    <div style="font-size:9px;color:#555;margin-bottom:6px">Signature acknowledges receipt of this inspection report.</div>
+    ${S.custSigData?`<img src="${S.custSigData}" style="max-height:55px;max-width:220px;display:block;margin-bottom:4px">`:'<div style="height:55px;border-bottom:1px solid #000;width:100%;margin-bottom:4px"></div>'}
+    <div style="font-size:10px;border-top:1px solid #999;padding-top:3px">${S.custSigName||'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</div>
+    <div style="font-size:9px;color:#666">Printed name &amp; title</div>
   </td>
-  <td style="border:1px solid #999;padding:6px 8px">
-    <span class="lbl">Ark Lic. #:</span> ${S.arkLic||' '}<br><br>
-    <span class="lbl">Inspection date:</span> ${S.inspDate||' '}
+  <td style="border:1px solid #999;padding:8px 10px;vertical-align:top">
+    <div style="font-size:10px;font-weight:700;margin-bottom:4px">INSPECTOR — ESIS</div>
+    ${S.sigData?`<img src="${S.sigData}" style="max-height:55px;max-width:220px;display:block;margin-bottom:4px">`:'<div style="height:55px;border-bottom:1px solid #000;width:100%;margin-bottom:4px"></div>'}
+    <table style="width:100%;border-collapse:collapse;margin-top:4px">
+      <tr>
+        <td style="font-size:9px;color:#666;border:none;padding:0;width:60%">
+          <div style="font-size:10px;font-weight:700">${S.inspSignature||'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</div>
+          <div>Printed name</div>
+        </td>
+        <td style="font-size:9px;color:#666;border:none;padding:0 0 0 8px">
+          <div style="font-size:10px;font-weight:700">${S.arkLic||'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}</div>
+          <div>Ark Lic. #</div>
+        </td>
+      </tr>
+    </table>
+    <div style="font-size:9px;color:#666;margin-top:4px">Inspection date: <strong>${S.inspDate||' '}</strong></div>
   </td>
-</tr></table>
+</tr>
+</table>
 
 <div style="margin-top:12px;font-size:9px;border-top:1px solid #ccc;padding-top:6px;line-height:1.5">
 <b>NOTICE TO OWNER/LESSEE:</b> 1. This report represents the condition of this unit on the date of inspection only.
